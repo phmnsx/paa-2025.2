@@ -28,7 +28,8 @@ int kmpMod(int* k, char* T, char* P, int matchSize){
     int ind = -1, i = 0, j = -1, passos = 0;   
 
     while (i < n) {
-		if (ind == m - 1)
+		printf("caracter: %c, j = %d, tabela = %d ind = %d\n", T[i], j + 1, k[j], ind);
+		if (ind >= m - 1)
 			return m;
 		if(T[i] == P[j + 1]){
 			passos++;
@@ -36,16 +37,16 @@ int kmpMod(int* k, char* T, char* P, int matchSize){
 		}
 		//houve mismatch
 		else{
-			printf("%d\n", passos);
 			if(passos >= matchSize)
 				ind += passos;
-			j = max(k[j], k[ind]); // j = indice maior entre: indice "normal" ou indice minimo permitido (se ind avançar, alguma parte ja teve match valido antes);
+			j = max(k[j], ind);
+			//j = ind; // j = indice maior entre: indice "normal" ou indice minimo permitido (se ind avançar, alguma parte ja teve match valido antes);
 			passos = 0;
 		}
 		i++;
     }
 
-    return ind + 1;
+    return ind + 1;	
 }
 
 int main(int argc, char* argv[]){
@@ -62,7 +63,7 @@ int main(int argc, char* argv[]){
 	int tamanho2;
 	float valid;
 	char* cadeia;
-	int tabela[1001];
+	int tabela[4096];
 	fscanf(input, "%d", &tamanho);
 	nome* list = malloc(sizeof(nome)*tamanho);
 	for(int i = 0; i < tamanho; i++){
