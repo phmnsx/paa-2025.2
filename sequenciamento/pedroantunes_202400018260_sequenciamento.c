@@ -9,9 +9,10 @@ typedef struct a{
 } nome;
 
 void calcularTabela(int* k, char* P, int offset){
-	for (int i = 0; i < strlen(P); i++)
+	int n = strlen(P);
+	for (int i = 0; i < n; i++)
 		k[i + offset] = -1;
-	for (int i = 1, j = -1; i < strlen(P); i++){
+	for (int i = 1, j = -1; i < n; i++){
 		while (j >= 0 && P[j + 1] != P[i])
 			j = k[j + offset];
 		if(P[j+1] == P[i])
@@ -24,10 +25,9 @@ int max(int a, int b){
 	return (a > b) ? a : b;
 }
 
-int kmpMod(int* k, char* T, char* P, int matchSize){
-    int n = strlen(T);
-    int m = strlen(P);
+int kmpMod(int** tabelas, char* T, char* P, int matchSize, int n, int m){
     int nov = (int)round(m*0.9);
+    int* k = tabelas[0];
     int ind = -1, i = 0, j = -1, passos = 0;   
 
     while (i < n) {
@@ -45,8 +45,7 @@ int kmpMod(int* k, char* T, char* P, int matchSize){
 		else{
 			if(passos >= matchSize){
 				ind += passos;
-				if(ind < m - 1)
-					calcularTabela(k, &P[ind+1], ind+1);
+				k = tabelas[ind + 1];
 			}
 
 			if (j == -1 ||j == ind)
@@ -71,7 +70,6 @@ int main(int argc, char* argv[]){
     char* entrada;
 	fscanf(input, "%s", buffer);
 	int n = strlen(buffer);
-	printf("%ld\n", n);
 	entrada = malloc(sizeof(char)*strlen(buffer) + 1);
 	strcpy(entrada, buffer);
 	int tamanho;
@@ -82,14 +80,21 @@ int main(int argc, char* argv[]){
 	nome* list = malloc(sizeof(nome)*tamanho);
 	for(int i = 0; i < tamanho; i++){
 		fscanf(input, "%s", buffer);
-		list[i].cod = malloc(sizeof(char)*strlen(buffer) + 1);
+		int m = strlen(buffer);
+		list[i].cod = malloc(sizeof(char)*m + 1);
 		strcpy(list[i].cod, buffer);
 		fscanf(input, "%d", &tamanho2);
 		for(int j = 0; j < tamanho2; j++){
 			fscanf(input, "%s", buffer);
+			int bufferSize = strlen(buffer);
 			calcularTabela(tabela, buffer, 0);
-			int resps = kmpMod(tabela, entrada, buffer, matchSize);
-			printf("%d\n", resps);
+			int** tabelas = malloc(sizeof(int*)*bufferSize);
+			for(int k = 0; k < strlen(buffer); k++){
+				tabelas[k] = malloc(sizeof(int)*bufferSize);
+				calcularTabela(tabelas[k], &buffer[k], k);
+			}
+			int resps = kmpMod(tabelas, entrada, buffer, matchSize, n, m);
+			//printf("%d\n", resps);
 		}
 	}
 }

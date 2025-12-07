@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <math.h>
 typedef struct Veiculo{
 	char placa[8];
 	int peso;
@@ -10,9 +10,9 @@ typedef struct Veiculo{
 
 typedef struct Produto{
 	char codigo[14];
-	double valor;
-	double peso;
-	double volume;
+	float valor;
+	int peso;
+	int volume;
 	int usado;
 	int indice;
 } produto;
@@ -27,107 +27,66 @@ int maior(int a, int b){
 		return a;
 	return b;
 }
-void trocar(produto* x, produto* y){
-	produto aux = *x;
-	*x = *y;
-	*y = aux;
-}
-int lomuto(produto* pLista, int i, int j){
-	int p = pLista[j].indice;
-	int x = i - 1;
-	for(int y = i; y < j; y++){
-		if((pLista[y].indice > p || !(pLista[y].usado))){
-			x++;
-			trocar(&pLista[x], &pLista[y]);
-		}
+
+void printResultados(produto* pLista, int* pUsados, veiculo ve, int qnt , int v, int p, float max,FILE* out){
+	float pp = (float)p/ve.peso * 100.0;
+    float pv = (float)v/ve.volume * 100.0;
+	fprintf(out, "[%s]R$%.2f,%dKG(%.0f%%),%dL(%.0f%%)->", ve.placa, max, p, pp, v, pv);
+	for(int i = qnt - 1; i >= 0; i--){
+		fprintf(out,"%s", pLista[pUsados[i]].codigo);
+		if(i != 0)
+		fprintf(out, ",");
 	}
-	trocar(&pLista[x+1], &pLista[j]);
-	return x + 1;
+	fprintf(out, "\n");
 }
 
-void quicksort(produto* pLista, int i, int j){
-	if(i<j){
-		int p = lomuto(pLista, i, j);
-		quicksort(pLista, i, p-1);
-		quicksort(pLista, p+1, j);
-	}
-}
 
-int solveMochila(veiculo v, produto* pLista, int tamanhoProdutos){ 
-	//a matriz vai ser de tamanho 100 x 100 x tamanhoProdutos
-	int ***dp = (int***)malloc((tamanhoProdutos + 1) * sizeof(int**));
-	if(dp == NULL) {
-    printf("Erro de alocação de memória\n");
-    return 0;
-	}
-    for(int i = 0; i <= tamanhoProdutos; i++){
-        dp[i] = (int**)malloc(101 * sizeof(int*));
-        if(dp[i] == NULL) {
-			printf("Erro de alocação de memória\n");
-			return 0;
-		}
-        for(int w = 0; w <= 100; w++){
-            dp[i][w] = (int*)calloc(101, sizeof(int));
-            if(dp[i][w] == NULL) {
-			printf("Erro de alocação de memória\n");
-			return 0;
-		}
-        }
-    }
-
-	//cada i vai ser o peso/volume disponivel, sendo n com i/100 * peso/volume do veiculo
-
-	for(int i = 0; i <= tamanhoProdutos; i++){ // i = w
-		for(int wp = 0; wp <= 100; wp++){
-			for(int wv = 0; wv <= 100; wv++){
-				double cp = wp * v.peso / 100.0;
-				double cv = wv * v.volume / 100.0;
-				//se nao cabe
-				if (i == 0 || wv == 0 || wp == 0)
-					dp[i][wp][wv] = 0;
-				else if (pLista[i].peso > cp || pLista[i].volume > cv)
-					dp[i][wp][wv] = dp[i-1][wp][wv];
-				else{
-					int nwp = wp - (int)(pLista[i].peso * 100.0/v.peso);
-					int nwv = wv - (int)(pLista[i].volume * 100.0/v.volume);
-					if(nwp < 0) nwp = 0;
-					if(nwv < 0) nwv = 0;
-					dp[i][wp][wv] = maior(dp[i][wp][wv], dp[i][nwp][nwv] + pLista[i].valor);
-				}
+void solveMochila(veiculo v, produto* pLista, int tamanhoTot, FILE* out)
+{
+	int t = (v.peso+1)*(v.volume+1);
+    float* dp = (float*)calloc(t, sizeof(float));
+    int* choice = calloc(t, sizeof(int));
+    for(int i = 0; i < t; i++)
+		choice[i] = -1;
+    
+    for(int i = 0; i < tamanhoTot; i++){
+		if(pLista[i].usado == 0){
+			for(int p = v.peso; p >= pLista[i].peso; p--){
+				int var = p*(v.volume + 1);
+				int var2 = (p-pLista[i].peso)*(v.volume + 1);
+				for(int vv = v.volume; vv >= pLista[i].volume; vv--){
+					float pn = dp[var2 + (vv - pLista[i].volume)] + pLista[i].valor;
+					if(pn > dp[var + vv]){
+						dp[var + vv] = pn;
+						choice[var + vv] = i;
+					}
+				} 
 			}
 		}
 	}
-	//considerando a matriz correta, selecionar os itens adicionados, e tambem remover o item da lista geral
-	int i = tamanhoProdutos;
-	int wp = 100;
-	int wv = 100;
-	int escolhidos = 0;
-
-	while(i > 0 && (wv > 0 || wp > 0)){
-		if(dp[i][wp][wv] != dp[i-1][wp][wv]){ //se for diferente, o item foi adicionado
-			//printf("%d, %d, diferenca: %d", dp[i][w], dp[i-1][w], dp[i][w] - dp[i-1][w]);
-			//printf("added: %s\n ", pLista[i].codigo);
-			escolhidos++;
-			pLista[i].usado = 1; //marca como usado
-			
-			wp = wp - (int)(pLista[i].peso*100.0/v.peso);
-			wv = wv - (int)(pLista[i].volume*100.0/v.volume);
-			i = i - 1;
-		}
-		else{
-			i = i - 1;
+	int* pUsados = (int*) malloc(sizeof(int)*tamanhoTot);
+	int ind = 0;
+	//backtrack eba
+	int i = v.peso;
+	int j = v.volume;
+	int idx = 0;
+	while( i >= 0 && j >= 0 && idx >= 0){
+		idx = choice[(i)*(v.volume+1)+(j)];
+		if(idx >= 0){
+			pUsados[ind++] = idx;
+			pLista[idx].usado = 1;
+			i -= pLista[idx].peso;
+            j -= pLista[idx].volume;
 		}
 	}
-	
-	for(int i = 0; i <= tamanhoProdutos; i++) {
-        for(int w = 0; w <= 100; w++) {
-            free(dp[i][w]);
-        }
-        free(dp[i]);
+	int pesoTotal = 0;
+	int volumeTotal = 0;
+	for (int i = 0; i < ind;i++){
+		pesoTotal += pLista[pUsados[i]].peso;
+		volumeTotal  += pLista[pUsados[i]].volume;
     }
-    free(dp);
 
-	return escolhidos;
+    printResultados(pLista, pUsados, v, ind, volumeTotal, pesoTotal, dp[(v.peso)*(v.volume+1)+(v.volume)],out);
 }
 
 
@@ -145,16 +104,34 @@ int main(int argc, char* argv[]){
 	fscanf(input,"%d", &tamanhoProdutos);
 	produto* pLista = malloc(sizeof(produto)*tamanhoProdutos);
 	for(int i = 0; i < tamanhoProdutos; i++){
-		fscanf(input, "%s %lf %lf %lf", pLista[i].codigo, &pLista[i].valor, &pLista[i].peso, &pLista[i].volume);
+		fscanf(input, "%s %f %d %d", pLista[i].codigo, &pLista[i].valor, &pLista[i].peso, &pLista[i].volume);
 		pLista[i].usado = 0;
 		pLista[i].indice = i;
 	}
-	int e = 0;
 	for(int i = 0; i < tamanhoVeiculos; i++){
-		e += solveMochila(vLista[i], pLista, tamanhoProdutos - e - 1);
-		//printf("\n");
-		quicksort(pLista, 0, tamanhoProdutos - 1);
+		solveMochila(vLista[i], pLista, tamanhoProdutos, output);
 	}
+	float precoTot = 0;
+	int pesoTot = 0;
+	int volTot = 0;
+	produto* pListaAux = malloc(tamanhoProdutos*sizeof(produto));
+	int j = 0;
+	for(int i = 0; i < tamanhoProdutos; i++)
+		if(pLista[i].usado == 0){
+			pListaAux[j++] = pLista[i];
+			precoTot += pLista[i].valor;
+			pesoTot += pLista[i].peso;
+			volTot += pLista[i].valor;
+		}
+	if(precoTot != 0){
+		fprintf(output, "PENDENTE:R$%.2f,%dKG,%dL->", precoTot, pesoTot, volTot);
+		for(int i = 0; i < j; i++){
+			fprintf(output,"%s", pListaAux[i].codigo);
+			if(i != j - 1)
+				fprintf(output,",");
+		}
+	}
+	
 	free(pLista);
 	free(vLista);
 	fclose(input);
