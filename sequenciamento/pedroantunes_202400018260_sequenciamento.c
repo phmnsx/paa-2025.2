@@ -17,7 +17,7 @@ void calcularTabela(int* k, char* P, int offset){
 			j = k[j + offset];
 		if(P[j+1] == P[i])
 			j++;
-		k[i + offset] = j;
+		k[i + offset] = j + offset;
 	}
 }
 
@@ -25,17 +25,18 @@ int max(int a, int b){
 	return (a > b) ? a : b;
 }
 
-int kmpMod(int** tabelas, char* T, char* P, int matchSize, int n, int m){
+int kmpMod(int* tabela, char* T, char* P, int matchSize, int n){
+	int m = strlen(P);
     int nov = (int)round(m*0.9);
-    int* k = tabelas[0];
+    int* k = tabela;
     int ind = -1, i = 0, j = -1, passos = 0;   
 
     while (i < n) {
 		//printf("caracter: %c, j = %d, tabela = %d ind = %d\n", T[i], j + 1, k[j], ind);
-		if (ind >= nov)
+		if (ind >= nov || ind == m - 1)
 			return ind + 1;
-		if (ind+ (n - i) < nov)
-			return ind + 1;
+		/*if (ind+ (n - i) < nov)
+			return ind + 1;*/
 		if(T[i] == P[j + 1]){
 			passos++;
 			i++;
@@ -43,19 +44,27 @@ int kmpMod(int** tabelas, char* T, char* P, int matchSize, int n, int m){
 		}
 		//houve mismatch
 		else{
-			if(passos >= matchSize){
+			if(passos >= matchSize)
 				ind += passos;
-				k = tabelas[ind + 1];
-			}
 
 			if (j == -1 ||j == ind)
 				i++;
-			if ((j >= ind + 1) && j >= 0)
-				j = ind + 1 + k[j];
+			if ((j >= ind + 1) && j >= 0){
+				if(k[j] != -1 && k[j] < ind){
+					calcularTabela(k, &P[ind+1], ind+1);
+					//printf("recalculo: %s\n", &P[ind+1]);
+				}
+				if(k[j] < ind)
+					j = ind;
+				else
+					j = k[j];
+			}
 			//printf("%d\n", j);
 			//j = ind; // j = indice maior entre: indice "normal" ou indice minimo permitido (se ind avançar, alguma parte ja teve match valido antes);
 			passos = j + 1 - (ind + 1);
+			
 		}
+		//printf("\n i, j, ind: %d %d %d", i, j, ind);
     }
 
     return ind + 1;	
@@ -83,17 +92,13 @@ int main(int argc, char* argv[]){
 		int m = strlen(buffer);
 		list[i].cod = malloc(sizeof(char)*m + 1);
 		strcpy(list[i].cod, buffer);
+		//printf("doenca: %s\n", list[i].cod);
 		fscanf(input, "%d", &tamanho2);
 		for(int j = 0; j < tamanho2; j++){
 			fscanf(input, "%s", buffer);
-			int bufferSize = strlen(buffer);
 			calcularTabela(tabela, buffer, 0);
-			int** tabelas = malloc(sizeof(int*)*bufferSize);
-			for(int k = 0; k < strlen(buffer); k++){
-				tabelas[k] = malloc(sizeof(int)*bufferSize);
-				calcularTabela(tabelas[k], &buffer[k], k);
-			}
-			int resps = kmpMod(tabelas, entrada, buffer, matchSize, n, m);
+			//printf("kmp de: %s\n", buffer);
+			int resps = kmpMod(tabela, entrada, buffer, matchSize, n);
 			//printf("%d\n", resps);
 		}
 	}
