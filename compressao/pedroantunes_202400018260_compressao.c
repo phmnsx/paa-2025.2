@@ -209,13 +209,20 @@ void gerarTabela(no* raiz, char* codigo, int prof, char T[][256]){
 		gerarTabela(raiz->D, codigo, prof+1, T);
 	}
 }
-
+void freeTree(no* t){
+	if(t->E)
+		freeTree(t->E);
+	if(t->D)
+		freeTree(t->D);
+	free(t);
+}
 int comprimeHUF(bit** entrada, int tamanho, char** saida){
 	bit* string = *entrada;
 	int H[256] = {0};
 	for(int i = 0; i < tamanho; i++){
 		H[toInt(string[i])]++;
 	}
+
 	arvore* fpm = criarHeap(256);
 	no* tmp;
 	
@@ -233,14 +240,13 @@ int comprimeHUF(bit** entrada, int tamanho, char** saida){
 		tmp->D = y;
 		inserir(fpm, tmp);
 	}
-	
 	tmp = extrairMin(fpm); //raiz
 	static char T[256][256];
 	char cod[256];
 	gerarTabela(tmp, cod, 0, T);
-	char* C = malloc(sizeof(char)*255+1);
+	char* C = malloc(sizeof(char)*256+1);
 	char* hex = malloc(sizeof(char)*255+1);
-	memset(C, 'a', sizeof(char)*tamanho*20);
+	memset(C, 'a', sizeof(char)*256+1);
 	C[0] = '\0';
 	for(int i = 0; i < tamanho; i++){
 		strcat(C, T[toInt(string[i])]);
@@ -254,6 +260,7 @@ int comprimeHUF(bit** entrada, int tamanho, char** saida){
 	*saida = hex;
 	free(*entrada);
 	//printf("%s\n", C);
+	freeTree(fpm->array[0]);
 	free(fpm->array);
 	free(fpm);
 	aux = strlen(hex);
@@ -291,4 +298,6 @@ int main(int argc, char* argv[]){
 		if(rlePorc <= hufPorc)
 			fprintf(output, "%d->RLE(%.2f%%)=%s\n", i, rlePorc, string2);
 	}
+	free(string);
+	free(string2);
 }

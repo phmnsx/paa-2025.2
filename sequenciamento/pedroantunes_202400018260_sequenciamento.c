@@ -34,7 +34,7 @@ int temGene(int* chaves, int* encontrado, int hash, int var1){
 	return 0;
 }
 
-/*void insereHash(int** chaves, int** encontrados, int var1, int key){
+void insereHash(int** chaves, int** encontrados, int var1, int key){
 	int* chave = *chaves;
 	int* encontrado = *encontrados;
 	
@@ -47,7 +47,7 @@ int temGene(int* chaves, int* encontrado, int hash, int var1){
 	}
 	encontrado[idx] = 1;
 	chave[idx] = key;
-}*/
+}
 
 int main(int argc, char* argv[]){
 	FILE* input = fopen(argv[1], "r");
