@@ -8,78 +8,46 @@ typedef struct a{
 	int percen;
 } nome;
 
-typedef struct b{
-	int len, link;
-	//int maxN; // 2n - 1, n sendo o tamanho da string
- 	int next[4]; //C A T G
-} state;
-
 int max(int a, int b){
 	return (a > b) ? a : b;
 }
 
-/*state* sa_init(int s, state* t0){
-	t0->maxN = (2*s) - 1;
-	t0->len = malloc(sizeof(int)*maxN);
-	t0->link = malloc(sizeof(int)*maxN);
-	t0->len[0] =  
-}*/
-
 int charToNum(char c){ // seja c C/A/T/G
-	if(c == 'C')
-		return 0;
 	if(c == 'A')
+		return 0;
+	if(c == 'C')
 		return 1;
-	if(c == 'T')
-		return 2;
 	if(c == 'G')
+		return 2;
+	if(c == 'T')
 		return 3;
 	return -1;
 }
 
-void generateSAM(char* string, int stringSize, state** t0){
-	*t0 = malloc(sizeof(state)*stringSize*2);
-	state* t = *t0;
-	memset(t, 0, sizeof(state) * stringSize * 2);
-	memset(t[0].next, -1, sizeof(t[0].next));
-	t[0].len = 0;
-	t[0].link = -1;
-	int sz = 1; // 1 ou 0?
-	int last = 0;
-	for(int i = 0; i < stringSize; i++){
-		int cur = sz++;
-		t[cur].len = t[last].len + 1;
-		memset(t[cur].next, -1, sizeof(t[cur].next));
-		int p = last;
-		while(p != -1 && t[p].next[charToNum(string[i])] == -1){
-			t[p].next[charToNum(string[i])] = cur;
-			p = t[p].link;
-		}
-		if (p == -1)
-			t[cur].link = 0;
-		else{
-			int q = t[p].next[charToNum(string[i])];
-			if(t[p].len + 1 == t[q].len)
-				t[cur].link = q;
-			else{
-				int clone = sz++;
-				t[clone] = t[q];
-				t[clone].len = t[p].len + 1;
-				
-				while(p != -1 && t[p].next[charToNum(string[i])] == q){
-					t[p].next[charToNum(string[i])] = clone;
-					p = t[p].link;
-				}
-				t[q].link = t[cur].link = clone;
-			}
-		}
-		last = cur;
+int temGene(int* chaves, int* encontrado, int hash, int var1){
+	int idx = hash & (var1 - 1);
+	while(encontrado[idx] == 1){
+		if (chaves[idx] == hash)
+			return 1;
+		idx = (idx + 1) & (var1 - 1);
 	}
+	return 0;
 }
 
-int solveSAM(char* entrada, int matchSize, state* sam) {
-
-}
+/*void insereHash(int** chaves, int** encontrados, int var1, int key){
+	int* chave = *chaves;
+	int* encontrado = *encontrados;
+	
+	int idx = key & (var1 - 1);
+	
+	while(encontrado[idx] == 1){
+		if(chave[idx] == key) 
+			return;
+		idx = (idx + 1) & (var1 - 1);
+	}
+	encontrado[idx] = 1;
+	chave[idx] = key;
+}*/
 
 int main(int argc, char* argv[]){
 	FILE* input = fopen(argv[1], "r");
@@ -89,14 +57,29 @@ int main(int argc, char* argv[]){
     char buffer[100000];
     char* entrada;
 	fscanf(input, "%s", buffer);
-	entrada = malloc(sizeof(char)*strlen(buffer) + 1);
+	int var1 = strlen(buffer);
+	entrada = malloc(sizeof(char)*var1 + 1);
+	int* entradaHash = (int*) malloc(sizeof(int)*var1*2);
+	int* chaves = (int*) malloc(sizeof(int)*var1*2);
+	int* encontrado = (int*) malloc(sizeof(int)*var1*2);
 	strcpy(entrada, buffer);
+	memset(entradaHash, 1, var1*2*sizeof(int));
+	memset(encontrado, 0, var1*2*sizeof(int));
+	int hdna = 0;
+	int rlhash = 0;
+	if (matchSize < 32)
+		rlhash = (1 << (2*matchSize)) - 1;
+	else
+		rlhash = -1;
+	for(int i = 0; i < var1; i++){
+		hdna = ((hdna << 2) | charToNum(entrada[i])) & rlhash;
+		if (i >= matchSize - 1)
+			insereHash(&chaves, &encontrado, var1, hdna);
+			
+	}
 	int tamanho;
 	int tamanho2;
-	//float valid;
 	fscanf(input, "%d", &tamanho);
-	state* t = 0;
-	generateSAM(entrada, strlen(entrada), &t);
 	nome* list = malloc(sizeof(nome)*tamanho);
 	for(int i = 0; i < tamanho; i++){
 		fscanf(input, "%s", buffer);
@@ -107,10 +90,28 @@ int main(int argc, char* argv[]){
 		for(int j = 0; j < tamanho2; j++){
 			fscanf(input, "%s", buffer);
 			int bufferSize = strlen(buffer);
-			printf("\n //new//\n");
-			//test_sam(buffer, t);
-			int resps = solveSAM(entrada, matchSize, t);
-			printf("%d\n", resps);
+			printf("tamanho: %d ", bufferSize);
+			int hash = 0;
+			int resp = 0;
+			int* lido = malloc(sizeof(int)*bufferSize);
+			memset(lido, 0, bufferSize*sizeof(int));
+			for(int i = 0; i < bufferSize; i++){
+				char c = buffer[i];
+				hash = ((hash << 2) | charToNum(c)) & rlhash;
+				if(i >= matchSize - 1){
+					if(temGene(chaves, encontrado, hash, var1)){
+						for(int j = 0; j < matchSize; j++){
+							int p = i - j;
+							if(lido[p] == 0){
+								lido[p] = 1;
+								resp++;
+							}
+						}
+					}
+				}
+			}
+			printf("%s: ", buffer);
+			printf("%d\n", resp);
 		}
 	}
 }

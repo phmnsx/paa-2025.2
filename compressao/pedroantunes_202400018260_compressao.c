@@ -21,12 +21,32 @@ typedef struct arvore{
 	no** array;
 } arvore;
 
-void printBits(bit* entrada, int tamanho, FILE* saida){
+void binToHex(char* C, char* hex){
+	int len = strlen(C);
+	int hexLen = (len+3)/4;
+	for(int i = 0; i < hexLen; i++){
+		int val = 0;
+		for(int j = 0; j < 4; j++){
+			int bitPos = i * 4 + j;
+			if(bitPos < len)
+				val = (val << 1) | (C[bitPos] - '0');
+			else
+				val = val << 1;
+		}
+		if (val < 10)
+			hex[i] = '0' + val;
+		else
+			hex[i] = 'A' + (val - 10);
+	}
+	hex[hexLen] = '\0';
+}
+
+/*void printBits(bit* entrada, int tamanho, FILE* saida){
 	for(int i = 0; i < tamanho; i++){
 		fprintf(saida, "%c%c ", entrada[i].s1, entrada[i].s2);
 	}
 	fprintf(saida, "\n");
-}
+}*/
 
 int igual(bit a, bit b){
 	return (a.s1 == b.s1 && a.s2 == b.s2);
@@ -57,16 +77,26 @@ int bitToIndex(bit b) {
     return (hexToInt(b.s1) << 4) | hexToInt(b.s2);
 }
 
-int comprimeRLE(bit** entrada, int tamanho){
+char* bitToString(bit* bits, int j){
+	char* string = malloc(sizeof(char)*j + 1);
+	string[j] = '\0';
+	for(int i = 0; i < j/2; i++){
+		string[2*i] = bits[i].s1;
+		string[2*i + 1] = bits[i].s2;
+	}
+	return string;
+}
+
+int comprimeRLE(bit** entrada, int tamanho, char** saida){
 	bit* string = *entrada;
-	bit* resultado = (bit*)malloc(sizeof(bit)*tamanho);
+	bit* resultado = (bit*)malloc(sizeof(bit)*2*tamanho);
 	int i = 0, j = 0; //i percorre entrada e j percorre resultado
 	int contagem = 1;
 	while(i <= tamanho){
 		if(i == tamanho){
-			*entrada = resultado;
-			free(string);
-			return j;
+			free(*entrada);
+			*saida = bitToString(resultado, j*2);
+			return j*2;
 		}
 		if(igual(string[i], string[i+1])){
 			contagem++;
@@ -145,52 +175,55 @@ arvore* criarHeap(int tam){
 	return g;
 }
 
-void gerarTabela(no* raiz, char* codigo, int prof, char T[][256]){
-	if(!raiz)
-		return;
-	if (!raiz->E && !raiz->D){
-		codigo[prof] = '\0';
-		strcpy(T[raiz->s.s1*256+raiz->s.s2], codigo);
-		return;
-	}
-	codigo[prof] = '0';
-	gerarTabela(raiz->E, codigo, prof + 1, T);
-	
-	codigo[prof] = '1';
-	gerarTabela(raiz->D, codigo, prof + 1, T);
+int toInt(bit b){
+	char string[3];
+	string[0] = b.s1;
+	string[1] = b.s2;
+	string[2] = '\0';
+	int res = (int)strtol(string, NULL, 16);
+	return res;
 }
 
-int comprimeHUF(bit** entrada, int tamanho){
+void gerarTabela(no* raiz, char* codigo, int prof, char T[][256]){
+	if(!raiz) return;
+	
+	if(!(raiz->E) && !(raiz->D)){
+		if(!(raiz->s.s1 == 'G')){
+			if(prof == 0){
+				codigo[0] = '0';
+				codigo[1] = '\0';
+			}
+			else
+				codigo[prof]='\0';
+			int idx = toInt(raiz->s);
+			strcpy(T[idx], codigo);
+		}
+		return;
+	}
+	if(raiz->E){
+		codigo[prof] = '0';
+		gerarTabela(raiz->E, codigo, prof+1, T);
+	}
+	if(raiz->D){
+		codigo[prof] = '1';
+		gerarTabela(raiz->D, codigo, prof+1, T);
+	}
+}
+
+int comprimeHUF(bit** entrada, int tamanho, char** saida){
 	bit* string = *entrada;
-	no H[256];
-	for(int i = 0; i < 256; i++){
-		H[i].freq = 0;
-		H[i].s = toBit(-1);
+	int H[256] = {0};
+	for(int i = 0; i < tamanho; i++){
+		H[toInt(string[i])]++;
 	}
-	int bitsDif = 0; //quantos bits diferentes tem
-	int j = 0;
-	int i = 0;
-	while(i < tamanho){
-		if(igual(H[j].s, toBit(-1))){
-			H[j].s = string[i];
-			H[j].freq++;
-			bitsDif++;
-			i++;
-		}
-		else if(igual(string[i], H[j].s)){
-			H[j].freq++;
-			j = 0;
-			i++;
-		}
-		else
-			j++;
-	}
-	arvore* fpm = criarHeap(bitsDif*10);
+	arvore* fpm = criarHeap(256);
 	no* tmp;
 	
-	for(int i = 0; i < bitsDif; i++){
-		tmp = novoNo(H[i].s, H[i].freq);
-		inserir(fpm, tmp);
+	for(int i = 0;i < 256; i++){
+		if(H[i] > 0){
+			tmp = novoNo(toBit(i), H[i]);
+			inserir(fpm, tmp);
+		}
 	}
 	while(fpm->tamanho > 1){
 		no* x = extrairMin(fpm);
@@ -200,21 +233,31 @@ int comprimeHUF(bit** entrada, int tamanho){
 		tmp->D = y;
 		inserir(fpm, tmp);
 	}
+	
 	tmp = extrairMin(fpm); //raiz
-	static char T[65536][256];
+	static char T[256][256];
 	char cod[256];
-	
 	gerarTabela(tmp, cod, 0, T);
-	
-	char* C = malloc(sizeof(char)*tamanho*20);
+	char* C = malloc(sizeof(char)*255+1);
+	char* hex = malloc(sizeof(char)*255+1);
 	memset(C, 'a', sizeof(char)*tamanho*20);
 	C[0] = '\0';
 	for(int i = 0; i < tamanho; i++){
-		strcat(C, T[string[i].s1*256+string[i].s2]);
+		strcat(C, T[toInt(string[i])]);
 	}
-	printf("%s\n", C);
+	binToHex(C, hex);
+	int aux = strlen(hex);
+	if(aux % 2){
+		hex[aux] = '0';
+		hex[aux + 1] = '\0';
+	}
+	*saida = hex;
+	free(*entrada);
+	//printf("%s\n", C);
 	free(fpm->array);
 	free(fpm);
+	aux = strlen(hex);
+	return aux;
 }
 
 int main(int argc, char* argv[]){
@@ -226,6 +269,8 @@ int main(int argc, char* argv[]){
     int qntBits;
     bit* rle;
     bit* huf;
+    char* string;
+    char* string2;
     for(int i = 0; i < qntLinhas; i++){
 		fscanf(input, "%d", &qntBits);
 		rle = (bit*)malloc(sizeof(bit)*qntBits);
@@ -235,7 +280,15 @@ int main(int argc, char* argv[]){
 			huf[j].s1 = rle[j].s1;
 			huf[j].s2 = rle[j].s2;
 		}
-		int rleLen = comprimeRLE(&rle, qntBits);
-		int hufLen = comprimeHUF(&huf, qntBits);
+		int rleLen = comprimeRLE(&rle, qntBits, &string2);
+		int hufLen = comprimeHUF(&huf, qntBits, &string);
+		qntBits = qntBits * 2;
+		float rlePorc = ((float)rleLen)/qntBits * 100.0;
+		float hufPorc = ((float)hufLen)/qntBits * 100.0;
+		//printf("huflen: %d rlelen: %d\n", hufLen, rleLen);
+		if(hufPorc <= rlePorc)
+			fprintf(output, "%d->HUF(%.2f%%)=%s\n", i, hufPorc, string);
+		if(rlePorc <= hufPorc)
+			fprintf(output, "%d->RLE(%.2f%%)=%s\n", i, rlePorc, string2);
 	}
 }
