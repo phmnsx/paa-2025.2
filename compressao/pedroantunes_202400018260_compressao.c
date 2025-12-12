@@ -41,6 +41,8 @@ void binToHex(char* C, char* hex){
 	hex[hexLen] = '\0';
 }
 
+static char hexTable[256][3] = {0};
+
 /*void printBits(bit* entrada, int tamanho, FILE* saida){
 	for(int i = 0; i < tamanho; i++){
 		fprintf(saida, "%c%c ", entrada[i].s1, entrada[i].s2);
@@ -54,15 +56,13 @@ int igual(bit a, bit b){
 
 bit toBit(int num){
 	bit resp;
-	char string[3];
 	if(num == -1){
 		resp.s1 = 'G';
 		resp.s2 = 'G';
 		return resp;
 	}
-	sprintf(string, "%02X", num);
-	resp.s1 = string[0];
-	resp.s2 = string[1];
+	resp.s1 = hexTable[num][0];
+	resp.s2 = hexTable[num][1];
 	return resp;
 }
 
@@ -135,13 +135,12 @@ void heapify(arvore* heap, int idx){
 }
 
 void inserir(arvore* heap, no* novoNo){
-	heap->tamanho++;
-	int i = heap->tamanho - 1;
-	while(i && novoNo->freq < heap->array[(i - 1) / 2]->freq){
-		heap->array[i] = heap->array[(i-1)/2];
-		i = (i-1) / 2;
-	}
-	heap->array[i] = novoNo;
+	int i = heap->tamanho++;
+    while(i && novoNo->freq < heap->array[(i - 1) >> 1]->freq) {
+        heap->array[i] = heap->array[(i - 1) >> 1];
+        i = (i - 1) >> 1;
+    }
+    heap->array[i] = novoNo;
 }
 
 void construirHeap(arvore* heap){
@@ -244,13 +243,18 @@ int comprimeHUF(bit** entrada, int tamanho, char** saida){
 	static char T[256][256];
 	char cod[256];
 	gerarTabela(tmp, cod, 0, T);
-	char* C = malloc(sizeof(char)*256+1);
-	char* hex = malloc(sizeof(char)*255+1);
-	memset(C, 'a', sizeof(char)*256+1);
+	char* C = malloc(sizeof(char)*256*256+1);
+	char* hex = malloc(sizeof(char)*256*256+1);
+	memset(C, 'a', sizeof(char)*256*256+1);
 	C[0] = '\0';
+	int endPos = 0;
 	for(int i = 0; i < tamanho; i++){
-		strcat(C, T[toInt(string[i])]);
+		char* codigo = T[toInt(string[i])];
+    int x = strlen(codigo);
+    memcpy(C + endPos, codigo, x);
+    endPos += x;
 	}
+	C[endPos] = '\0';
 	binToHex(C, hex);
 	int aux = strlen(hex);
 	if(aux % 2){
@@ -267,12 +271,24 @@ int comprimeHUF(bit** entrada, int tamanho, char** saida){
 	return aux;
 }
 
+void initHexTable() {
+    static int initialized = 0;
+    if (!initialized) {
+        for(int i = 0; i < 256; i++){
+            hexTable[i][0] = "0123456789ABCDEF"[(i >> 4) & 0xF];
+            hexTable[i][1] = "0123456789ABCDEF"[i & 0xF];
+            hexTable[i][2] = '\0';
+        }
+        initialized = 1;
+    }
+}
+
 int main(int argc, char* argv[]){
 	FILE* input = fopen(argv[1], "r");
     FILE* output = fopen(argv[2], "w");
     int qntLinhas;
     fscanf(input, "%d", &qntLinhas);
-    
+    initHexTable();
     int qntBits;
     bit* rle;
     bit* huf;

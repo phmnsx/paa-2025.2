@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,110 +9,130 @@ typedef struct a{
 	int percen;
 } nome;
 
+typedef struct no{
+	int i;
+	struct no* proxNo;
+} no;
+
+int myPow(int base, int expoente){
+	int r = 1;
+	for(int i = 0; i < expoente; i++){
+		r = r * base;
+	}
+	return r;
+}
+
+int base3ToInt(char* s, int tam){
+	int tot = 0;
+	for(int i = 0; i < tam; i++){
+		tot += (s[i] - 48) * (myPow(4, tam - (i + 1)));
+	}
+	return tot;
+}
+
+int getIdx(char* s, int tam){
+	char* tmp = malloc(sizeof(char)*tam + 1);
+	for(int i = 0; i < tam; i++){
+		if(s[i] == 'A')
+			tmp[i] = '0';
+		else if (s[i] == 'C')
+			tmp[i] = '1';
+		else if (s[i] == 'T')
+			tmp[i] = '2';
+		else if (s[i] == 'G')
+			tmp[i] = '3';
+	}
+	int resp = base3ToInt(tmp, tam);
+	free(tmp);
+	return resp;
+}
+
 int max(int a, int b){
 	return (a > b) ? a : b;
 }
 
-int charToNum(char c){ // seja c C/A/T/G
-	if(c == 'A')
-		return 0;
-	if(c == 'C')
-		return 1;
-	if(c == 'G')
-		return 2;
-	if(c == 'T')
-		return 3;
-	return -1;
+no* novoNo(int ind, no* pn){
+	no* new = malloc(sizeof(no));
+	new->proxNo = pn;
+	new->i = ind;
+	return new;
 }
-
-int temGene(int* chaves, int* encontrado, int hash, int var1){
-	int idx = hash & (var1 - 1);
-	while(encontrado[idx] == 1){
-		if (chaves[idx] == hash)
-			return 1;
-		idx = (idx + 1) & (var1 - 1);
-	}
-	return 0;
-}
-
-void insereHash(int** chaves, int** encontrados, int var1, int key){
-	int* chave = *chaves;
-	int* encontrado = *encontrados;
-	
-	int idx = key & (var1 - 1);
-	
-	while(encontrado[idx] == 1){
-		if(chave[idx] == key) 
-			return;
-		idx = (idx + 1) & (var1 - 1);
-	}
-	encontrado[idx] = 1;
-	chave[idx] = key;
-}
-
 int main(int argc, char* argv[]){
 	FILE* input = fopen(argv[1], "r");
     FILE* output = fopen(argv[2], "w");
     int matchSize;
     fscanf(input, "%d", &matchSize);
-    char buffer[100000];
+    printf("k = %d\n", matchSize);
+    char buffer[4096];
     char* entrada;
 	fscanf(input, "%s", buffer);
-	int var1 = strlen(buffer);
-	entrada = malloc(sizeof(char)*var1 + 1);
-	int* entradaHash = (int*) malloc(sizeof(int)*var1*2);
-	int* chaves = (int*) malloc(sizeof(int)*var1*2);
-	int* encontrado = (int*) malloc(sizeof(int)*var1*2);
+	entrada = malloc(sizeof(char)*strlen(buffer)+1);
 	strcpy(entrada, buffer);
-	memset(entradaHash, 1, var1*2*sizeof(int));
-	memset(encontrado, 0, var1*2*sizeof(int));
-	int hdna = 0;
-	int rlhash = 0;
-	if (matchSize < 32)
-		rlhash = (1 << (2*matchSize)) - 1;
-	else
-		rlhash = -1;
-	for(int i = 0; i < var1; i++){
-		hdna = ((hdna << 2) | charToNum(entrada[i])) & rlhash;
-		if (i >= matchSize - 1)
-			insereHash(&chaves, &encontrado, var1, hdna);
-			
+	char* tmp = malloc(sizeof(char)*matchSize + 2);
+	tmp[0] = '3';
+	for(int i = 1; i <= matchSize; i++){
+		tmp[i] = '0';
 	}
-	int tamanho;
+	int tamanhoCadeia = strlen(buffer);
+	no** tabelaHash = malloc(sizeof(no*)*base3ToInt(tmp, matchSize + 1));
+	int* usado = malloc(sizeof(int)*base3ToInt(tmp, matchSize + 1));
+	
+	//preencher tabela
+	for(int i = 0; i < base3ToInt(tmp, matchSize + 1); i++){
+		tabelaHash[i] = NULL;
+	}
+	for(int i = 0; i + matchSize - 1 < tamanhoCadeia; i++){
+		if(tabelaHash[getIdx(&entrada[i], matchSize)] == NULL){
+			tabelaHash[getIdx(&entrada[i], matchSize)] = novoNo(i , NULL);
+		}
+		else{
+			no* ultno = tabelaHash[getIdx(&entrada[i], matchSize)];
+			while(ultno->proxNo != NULL) 
+				ultno = ultno->proxNo;
+			ultno->proxNo = novoNo(i, NULL);
+		}
+	}
+
 	int tamanho2;
+	//printf("indice:%d", tabelaHash[getIdx("AAA", matchSize)]->proxNo->proxNo->i);
+	int tamanho;
 	fscanf(input, "%d", &tamanho);
 	nome* list = malloc(sizeof(nome)*tamanho);
 	for(int i = 0; i < tamanho; i++){
 		fscanf(input, "%s", buffer);
-		int m = strlen(buffer);
-		list[i].cod = malloc(sizeof(char)*m + 1);
+		list[i].cod = malloc(sizeof(char)*strlen(buffer)+1);
 		strcpy(list[i].cod, buffer);
 		fscanf(input, "%d", &tamanho2);
 		for(int j = 0; j < tamanho2; j++){
-			fscanf(input, "%s", buffer);
-			int bufferSize = strlen(buffer);
-			printf("tamanho: %d ", bufferSize);
-			int hash = 0;
-			int resp = 0;
-			int* lido = malloc(sizeof(int)*bufferSize);
-			memset(lido, 0, bufferSize*sizeof(int));
-			for(int i = 0; i < bufferSize; i++){
-				char c = buffer[i];
-				hash = ((hash << 2) | charToNum(c)) & rlhash;
-				if(i >= matchSize - 1){
-					if(temGene(chaves, encontrado, hash, var1)){
-						for(int j = 0; j < matchSize; j++){
-							int p = i - j;
-							if(lido[p] == 0){
-								lido[p] = 1;
-								resp++;
-							}
-						}
-					}
+			fscanf(input, "%s", buffer); // buffer = gene
+			memset(usado, 0, sizeof(int)*base3ToInt(tmp, matchSize + 1));
+			int idxMax = 0;
+			int idx = 0;
+			int ultimoMatch = 0;
+			no* cur;
+			int tamanhoGene = strlen(buffer);
+			while(idxMax < tamanhoCadeia && ultimoMatch + matchSize <= tamanhoGene && idx + matchSize <= tamanhoGene){
+				//printf("Indice no gene:%d\n", idx);
+				cur = tabelaHash[getIdx(&buffer[idx], matchSize)];
+				int pulos = usado[getIdx(&buffer[idx], matchSize)];
+				if(cur == NULL)
+					break;
+				while(pulos > 0 && cur->proxNo != NULL && cur->i < idxMax){
+					cur = cur->proxNo;
+					pulos--;
 				}
+				
+				int tmp = cur->i;
+				while(entrada[tmp] == buffer[idx] && idx < tamanhoGene){
+					tmp++;
+					idx++;
+					ultimoMatch++;
+				}
+					
+				idxMax = tmp;
+				usado[getIdx(&buffer[idx], matchSize)]++;
 			}
-			printf("%s: ", buffer);
-			printf("%d\n", resp);
+			//printf("%d\n", ultimoMatch);
 		}
 	}
 }
