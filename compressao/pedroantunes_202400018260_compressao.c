@@ -13,6 +13,7 @@ typedef struct no{
 	bit s;
 	struct no* D;
 	struct no* E;
+	int tamanhoBin;
 } no;
 
 typedef struct arvore{
@@ -21,28 +22,28 @@ typedef struct arvore{
 	no** array;
 } arvore;
 
+static char binToHexTable[16] = "0123456789ABCDEF";
+
 void binToHex(char* C, char* hex){
-	int len = strlen(C);
-	int hexLen = (len+3)/4;
-	for(int i = 0; i < hexLen; i++){
-		int val = 0;
-		for(int j = 0; j < 4; j++){
-			int bitPos = i * 4 + j;
-			if(bitPos < len)
-				val = (val << 1) | (C[bitPos] - '0');
-			else
-				val = val << 1;
-		}
-		if (val < 10)
-			hex[i] = '0' + val;
-		else
-			hex[i] = 'A' + (val - 10);
-	}
-	hex[hexLen] = '\0';
+    int len = strlen(C);
+    int hexLen = (len + 3) / 4;
+    
+    for(int i = 0; i < hexLen; i++){
+        int val = 0;
+        int start = i * 4;
+        for(int j = 0; j < 4; j++){
+            if(start + j < len){
+                val = (val << 1) | (C[start + j] - '0');
+            } else {
+                val <<= 1;
+            }
+        }
+        hex[i] = binToHexTable[val];
+    }
+    hex[hexLen] = '\0';
 }
 
 static char hexTable[256][3] = {0};
-
 /*void printBits(bit* entrada, int tamanho, FILE* saida){
 	for(int i = 0; i < tamanho; i++){
 		fprintf(saida, "%c%c ", entrada[i].s1, entrada[i].s2);
@@ -50,8 +51,8 @@ static char hexTable[256][3] = {0};
 	fprintf(saida, "\n");
 }*/
 
-int igual(bit a, bit b){
-	return (a.s1 == b.s1 && a.s2 == b.s2);
+int igual(char* a, char* b){
+	return (a[0] == b[0] && a[1] == b[1]);
 }
 
 bit toBit(int num){
@@ -87,27 +88,32 @@ char* bitToString(bit* bits, int j){
 	return string;
 }
 
-int comprimeRLE(bit** entrada, int tamanho, char** saida){
-	bit* string = *entrada;
-	bit* resultado = (bit*)malloc(sizeof(bit)*2*tamanho);
+int comprimeRLE(char** entrada, int tamanho, char** saida){
+	char* string = *entrada;
+	char* resultado = (char*)malloc(sizeof(char)*2*tamanho + 1);
 	int i = 0, j = 0; //i percorre entrada e j percorre resultado
 	int contagem = 1;
 	while(i <= tamanho){
 		if(i == tamanho){
 			free(*entrada);
-			*saida = bitToString(resultado, j*2);
-			return j*2;
+			resultado[j] = '\0';
+			*saida = resultado;
+			return j;
 		}
-		if(igual(string[i], string[i+1])){
+
+		if(	string[i] == string[i+2] && //AA AA
+			string[i+1] == string [i+3] && i + 3 < tamanho){
 			contagem++;
-			i++;
+			i+=2;
 		}
 		else{
-			resultado[j] = toBit(contagem); //adicione a contagem ao espaço j
-			resultado[j+1] = string[i]; //adicione o bit contado j vezes em j + 1
-			j += 2; //coloque j pra depois do bit
+			resultado[j] = hexTable[contagem][0]; //adicione a contagem ao espaço j
+			resultado[j+1] = hexTable[contagem][1];
+			resultado[j+2] = string[i]; //adicione o bit contado j vezes em j + 1
+			resultado[j+3] = string[i+1];
+			j += 4; //coloque j pra depois do bit
 			contagem = 1;
-			i++;
+			i += 2;
 		}
 	}
 	return -1;
@@ -117,6 +123,15 @@ void swap(no** a, no** b){
 	no* t = *a;
 	*a = *b;
 	*b = t;
+}
+
+void siftUp(arvore* h, int i){
+	while(i>0){
+        int p=(i-1)/2;
+        if(h->array[i]->freq >= h->array[p]->freq) break;
+        swap(&h->array[i], &h->array[p]);
+        i=p;
+    }
 }
 
 void heapify(arvore* heap, int idx){
@@ -136,11 +151,13 @@ void heapify(arvore* heap, int idx){
 
 void inserir(arvore* heap, no* novoNo){
 	int i = heap->tamanho++;
-    while(i && novoNo->freq < heap->array[(i - 1) >> 1]->freq) {
-        heap->array[i] = heap->array[(i - 1) >> 1];
-        i = (i - 1) >> 1;
-    }
     heap->array[i] = novoNo;
+}
+
+void inserirOrd(arvore* heap, no* novoNo){
+	heap->array[heap->tamanho] = novoNo;
+	siftUp(heap,heap->tamanho);
+	heap->tamanho++;
 }
 
 void construirHeap(arvore* heap){
@@ -163,6 +180,7 @@ no* novoNo(bit dado, int freq){
 	newnode->E = newnode->D = NULL;
 	newnode->freq = freq;
 	newnode->s = dado;
+	newnode->tamanhoBin = 0;
 	return newnode;
 }
 
@@ -183,7 +201,7 @@ int toInt(bit b){
 	return res;
 }
 
-void gerarTabela(no* raiz, char* codigo, int prof, char T[][256]){
+void gerarTabela(no* raiz, char* codigo, int prof, char T[][256], int tamanhos[]){
 	if(!raiz) return;
 	
 	if(!(raiz->E) && !(raiz->D)){
@@ -191,21 +209,25 @@ void gerarTabela(no* raiz, char* codigo, int prof, char T[][256]){
 			if(prof == 0){
 				codigo[0] = '0';
 				codigo[1] = '\0';
+				prof = 1;
 			}
 			else
 				codigo[prof]='\0';
 			int idx = toInt(raiz->s);
+			tamanhos[idx] = prof;
 			strcpy(T[idx], codigo);
 		}
 		return;
 	}
 	if(raiz->E){
 		codigo[prof] = '0';
-		gerarTabela(raiz->E, codigo, prof+1, T);
+		
+		gerarTabela(raiz->E, codigo, prof+1, T, tamanhos);
 	}
 	if(raiz->D){
 		codigo[prof] = '1';
-		gerarTabela(raiz->D, codigo, prof+1, T);
+		
+		gerarTabela(raiz->D, codigo, prof+1, T, tamanhos);
 	}
 }
 void freeTree(no* t){
@@ -215,11 +237,14 @@ void freeTree(no* t){
 		freeTree(t->D);
 	free(t);
 }
-int comprimeHUF(bit** entrada, int tamanho, char** saida){
-	bit* string = *entrada;
+
+
+int comprimeHUF(char** entrada, int tamanho, char** saida){
+	char* string = *entrada;
 	int H[256] = {0};
+	int tamanhos[256] = {0};
 	for(int i = 0; i < tamanho; i++){
-		H[toInt(string[i])]++;
+		H[hexToInt(string[i*2])*16 + hexToInt(string[i*2+1])]++;
 	}
 
 	arvore* fpm = criarHeap(256);
@@ -231,28 +256,33 @@ int comprimeHUF(bit** entrada, int tamanho, char** saida){
 			inserir(fpm, tmp);
 		}
 	}
+	//heapify(fpm, 0);
+	construirHeap(fpm);
 	while(fpm->tamanho > 1){
 		no* x = extrairMin(fpm);
 		no* y = extrairMin(fpm);
 		tmp = novoNo(toBit(-1),x->freq + y->freq);
 		tmp->E = x;
 		tmp->D = y;
-		inserir(fpm, tmp);
+		inserirOrd(fpm, tmp);
+		//siftUp(fpm, fpm->tamanho);
 	}
 	tmp = extrairMin(fpm); //raiz
 	static char T[256][256];
 	char cod[256];
-	gerarTabela(tmp, cod, 0, T);
-	char* C = malloc(sizeof(char)*256*256+1);
-	char* hex = malloc(sizeof(char)*256*256+1);
-	memset(C, 'a', sizeof(char)*256*256+1);
+	gerarTabela(tmp, cod, 0, T, tamanhos);
+	char* C = malloc(sizeof(char)*tamanho*256+1);
+	char* hex = malloc(sizeof(char)*tamanho*256+1);
+	memset(C, 'a', sizeof(char)*tamanho*256);
 	C[0] = '\0';
 	int endPos = 0;
 	for(int i = 0; i < tamanho; i++){
-		char* codigo = T[toInt(string[i])];
-    int x = strlen(codigo);
-    memcpy(C + endPos, codigo, x);
-    endPos += x;
+		int idx = hexToInt(string[i*2])*16 + hexToInt(string[i*2+1]);
+		char* codigo = T[idx];
+		//int x = strlen(codigo);
+		int x = tamanhos[idx];
+		memcpy(&C[endPos], codigo, x);
+		endPos += x;
 	}
 	C[endPos] = '\0';
 	binToHex(C, hex);
@@ -267,6 +297,7 @@ int comprimeHUF(bit** entrada, int tamanho, char** saida){
 	freeTree(fpm->array[0]);
 	free(fpm->array);
 	free(fpm);
+	free(C);
 	aux = strlen(hex);
 	return aux;
 }
@@ -288,32 +319,44 @@ int main(int argc, char* argv[]){
     FILE* output = fopen(argv[2], "w");
     int qntLinhas;
     fscanf(input, "%d", &qntLinhas);
+    //printf("Inicio\n");
     initHexTable();
     int qntBits;
-    bit* rle;
-    bit* huf;
+    char* rle;
+    char* huf;
     char* string;
-    char* string2;
+	char* string2;
     for(int i = 0; i < qntLinhas; i++){
 		fscanf(input, "%d", &qntBits);
-		rle = (bit*)malloc(sizeof(bit)*qntBits);
-		huf = (bit*)malloc(sizeof(bit)*qntBits);
+		rle = (char*)malloc(sizeof(char)*qntBits*2 + 1);
+		huf = (char*)malloc(sizeof(char)*qntBits*2 + 1);
+		
 		for(int j = 0; j < qntBits; j++){
-			fscanf(input, " %c%c", &rle[j].s1, &rle[j].s2);
-			huf[j].s1 = rle[j].s1;
-			huf[j].s2 = rle[j].s2;
+			fscanf(input, " %c%c", &rle[j*2], &rle[j*2 + 1]); //AA AA AA
+			//huf[j*2] = rle[j];
+			//huf[j*2] = rle[j];
 		}
-		int rleLen = comprimeRLE(&rle, qntBits, &string2);
+		rle[qntBits*2] = '\0';
+		memcpy(huf, rle, sizeof(char)*qntBits*2 + 1);
+		//printf("qntBits*2:%d, %s\n", qntBits*2, huf);
+		int rleLen = comprimeRLE(&rle, qntBits*2, &string2);
+		//fprintf(stdout, "RLE concluido\n");
+		//printf("RLE concluido\n");
 		int hufLen = comprimeHUF(&huf, qntBits, &string);
+		//fprintf(stdout, "HUF concluido\n");
+		//printf("HUF concluido\n");
 		qntBits = qntBits * 2;
 		float rlePorc = ((float)rleLen)/qntBits * 100.0;
 		float hufPorc = ((float)hufLen)/qntBits * 100.0;
 		//printf("huflen: %d rlelen: %d\n", hufLen, rleLen);
+		//printf("rlelen: %d\n", rleLen);
+		//printf("rle resp: %s\n", string);
 		if(hufPorc <= rlePorc)
 			fprintf(output, "%d->HUF(%.2f%%)=%s\n", i, hufPorc, string);
 		if(rlePorc <= hufPorc)
 			fprintf(output, "%d->RLE(%.2f%%)=%s\n", i, rlePorc, string2);
+		free(string);
+		free(string2);
 	}
-	free(string);
-	free(string2);
+	
 }
