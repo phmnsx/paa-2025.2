@@ -320,37 +320,38 @@ int main(int argc, char* argv[]){
     int qntLinhas;
     fscanf(input, "%d", &qntLinhas);
     //printf("Inicio\n");
+     char buffer[65536];
     initHexTable();
     int qntBits;
     char* rle;
     char* huf;
     char* string;
 	char* string2;
+	//int c;
     for(int i = 0; i < qntLinhas; i++){
 		fscanf(input, "%d", &qntBits);
-		rle = (char*)malloc(sizeof(char)*qntBits*2 + 1);
+		fgetc(input); //tira o whitespace, sobrando apenas os byte
+		rle = (char*)malloc(sizeof(char)*qntBits*2 + 1); //AA(whitespace)*3 + 1
 		huf = (char*)malloc(sizeof(char)*qntBits*2 + 1);
-		
-		for(int j = 0; j < qntBits; j++){
-			fscanf(input, " %c%c", &rle[j*2], &rle[j*2 + 1]); //AA AA AA
-			//huf[j*2] = rle[j];
-			//huf[j*2] = rle[j];
-		}
+		fgets(buffer, sizeof(buffer), input);
+		char* src = buffer;
+        char* dst = rle;
+        int count = 0;
+         while(*src && count < qntBits*2){
+            if(*src != ' '){
+                *dst++ = *src;
+                count++;
+            }
+            src++;
+        }
 		rle[qntBits*2] = '\0';
+		//printf("%s\n", rle);
 		memcpy(huf, rle, sizeof(char)*qntBits*2 + 1);
-		//printf("qntBits*2:%d, %s\n", qntBits*2, huf);
 		int rleLen = comprimeRLE(&rle, qntBits*2, &string2);
-		//fprintf(stdout, "RLE concluido\n");
-		//printf("RLE concluido\n");
 		int hufLen = comprimeHUF(&huf, qntBits, &string);
-		//fprintf(stdout, "HUF concluido\n");
-		//printf("HUF concluido\n");
 		qntBits = qntBits * 2;
 		float rlePorc = ((float)rleLen)/qntBits * 100.0;
 		float hufPorc = ((float)hufLen)/qntBits * 100.0;
-		//printf("huflen: %d rlelen: %d\n", hufLen, rleLen);
-		//printf("rlelen: %d\n", rleLen);
-		//printf("rle resp: %s\n", string);
 		if(hufPorc <= rlePorc)
 			fprintf(output, "%d->HUF(%.2f%%)=%s\n", i, hufPorc, string);
 		if(rlePorc <= hufPorc)
